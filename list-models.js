@@ -1,0 +1,1 @@
+const { GoogleGenAI } = require('@google/genai'); const ai = new GoogleGenAI({ apiKey: 'AIzaSyDnUMd6JV4M7ehTenlq8W-HV6ml8ms9ceQ' }); async function list() { try { const response = await ai.models.list(); console.log(JSON.stringify(response)); } catch (e) { console.error(e.message); } } list();  

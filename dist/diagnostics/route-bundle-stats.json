@@ -1,0 +1,41 @@
+[
+  {
+    "route": "/",
+    "firstLoadUncompressedJsBytes": 843149,
+    "firstLoadChunkPaths": [
+      "dist\\static\\chunks\\3fntmmi971322.js",
+      "dist\\static\\chunks\\3pc2vp9of-b8r.js",
+      "dist\\static\\chunks\\0tfau_ovj5se7.js",
+      "dist\\static\\chunks\\07nldpx3i6mc_.js",
+      "dist\\static\\chunks\\2i51e627rllld.js",
+      "dist\\static\\chunks\\08ttfj81-47mu.js",
+      "dist\\static\\chunks\\42r-1umgtvwhg.js",
+      "dist\\static\\chunks\\turbopack-14batnkm9xds-.js"
+    ]
+  },
+  {
+    "route": "/login",
+    "firstLoadUncompressedJsBytes": 455558,
+    "firstLoadChunkPaths": [
+      "dist\\static\\chunks\\3fntmmi971322.js",
+      "dist\\static\\chunks\\3qpgv1sztru5g.js",
+      "dist\\static\\chunks\\07nldpx3i6mc_.js",
+      "dist\\static\\chunks\\2i51e627rllld.js",
+      "dist\\static\\chunks\\08ttfj81-47mu.js",
+      "dist\\static\\chunks\\42r-1umgtvwhg.js",
+      "dist\\static\\chunks\\turbopack-14batnkm9xds-.js"
+    ]
+  },
+  {
+    "route": "/_not-found",
+    "firstLoadUncompressedJsBytes": 451696,
+    "firstLoadChunkPaths": [
+      "dist\\static\\chunks\\3fntmmi971322.js",
+      "dist\\static\\chunks\\07nldpx3i6mc_.js",
+      "dist\\static\\chunks\\2i51e627rllld.js",
+      "dist\\static\\chunks\\08ttfj81-47mu.js",
+      "dist\\static\\chunks\\42r-1umgtvwhg.js",
+      "dist\\static\\chunks\\turbopack-14batnkm9xds-.js"
+    ]
+  }
+]
