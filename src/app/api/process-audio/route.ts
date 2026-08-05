@@ -65,31 +65,37 @@ export async function POST(request: Request) {
       }
     });
 
-    const responseText = response.text || '';
-    let transactionData;
-    
-    try {
-      transactionData = JSON.parse(responseText);
-    } catch (e) {
-      console.error('Failed to parse Gemini response:', responseText);
-      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 });
+    const resultText = response.text;
+    if (!resultText) {
+      throw new Error('Empty response from Gemini');
     }
 
+    const transactionData = JSON.parse(resultText);
+
+    // Default to EXPENSE if not recognized
+    const type = transactionData.type?.toUpperCase() === 'INCOME' ? 'INCOME' : 'EXPENSE';
+    // Remove any currency symbols and parse as float
+    const amount = parseFloat(String(transactionData.amount).replace(/[^0-9.-]+/g, '')) || 0;
+    
     // Save to database
     const transaction = await prisma.transaction.create({
       data: {
-        type: transactionData.type || 'EXPENSE',
-        amount: parseFloat(transactionData.amount) || 0,
-        category: transactionData.category || 'Uncategorized',
-        description: transactionData.description || 'Processed via Voice',
-        date: new Date(),
         userId: user.userId as string,
-      },
+        type,
+        amount,
+        category: transactionData.category || 'Other',
+        description: transactionData.description || 'Voice entry',
+        date: new Date(),
+      }
     });
 
-    return NextResponse.json({ success: true, transaction });
-  } catch (error) {
+    return NextResponse.json({ success: true, data: transaction });
+  } catch (error: any) {
     console.error('Error processing audio:', error);
-    return NextResponse.json({ error: 'Failed to process audio' }, { status: 500 });
+    // Send the exact error message back to the client for debugging!
+    return NextResponse.json({ 
+      error: 'Failed to process audio', 
+      details: error?.message || String(error)
+    }, { status: 500 });
   }
 }

@@ -172,7 +172,7 @@ export default function Dashboard() {
         await fetchTransactions();
       } else {
         const error = await res.json();
-        alert(`Error processing audio: ${error.error}`);
+        alert(`Error processing audio: ${error.details || error.error}`);
       }
     } catch (error) {
       console.error("Error sending audio:", error);
