@@ -19,14 +19,37 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
 
-    if (!audioFile) {
-      return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
+    if (!audioFile || audioFile.size < 500) {
+      return NextResponse.json({ 
+        error: 'Audio recording too short', 
+        details: 'Audio recording was under 0.5 seconds or empty. Please hold the microphone button firmly while speaking.' 
+      }, { status: 400 });
+    }
+
+    // Convert audio file to Buffer
+    const arrayBuffer = await audioFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Determine clean file extension for Groq Whisper
+    let fileName = 'recording.webm';
+    const mime = (audioFile.type || '').toLowerCase();
+    if (mime.includes('mp4') || mime.includes('m4a')) {
+      fileName = 'recording.m4a';
+    } else if (mime.includes('wav')) {
+      fileName = 'recording.wav';
+    } else if (mime.includes('mp3') || mime.includes('mpeg')) {
+      fileName = 'recording.mp3';
+    } else if (mime.includes('ogg')) {
+      fileName = 'recording.ogg';
     }
 
     // Step 1: Speech-to-Text via Groq Whisper
-    console.log('Transcribing audio via Groq Whisper (whisper-large-v3)...');
+    console.log(`Transcribing audio (${buffer.length} bytes, ${fileName}) via Groq Whisper (whisper-large-v3)...`);
+    
+    const cleanFile = new File([buffer], fileName, { type: audioFile.type || 'audio/webm' });
+
     const groqFormData = new FormData();
-    groqFormData.append('file', audioFile);
+    groqFormData.append('file', cleanFile, fileName);
     groqFormData.append('model', 'whisper-large-v3');
     groqFormData.append('temperature', '0');
 
