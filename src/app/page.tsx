@@ -133,16 +133,28 @@ export default function Dashboard() {
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
       };
 
       mediaRecorder.onstop = async () => {
-        const mimeType = mediaRecorder.mimeType;
+        // Stop microphone tracks only AFTER recording has stopped completely
+        stream.getTracks().forEach(track => track.stop());
+        
+        const mimeType = mediaRecorder.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        
+        if (audioBlob.size < 100) {
+          alert("Audio recording was too short or empty. Please hold the button while speaking.");
+          return;
+        }
+
         await processAudio(audioBlob, mimeType);
       };
 
-      mediaRecorder.start();
+      // Request data every 500ms so chunks are continuously collected
+      mediaRecorder.start(500);
       setIsRecording(true);
     } catch (error) {
       console.error("Error accessing microphone:", error);
@@ -152,9 +164,8 @@ export default function Dashboard() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
       setIsRecording(false);
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      mediaRecorderRef.current.stop();
     }
   };
 

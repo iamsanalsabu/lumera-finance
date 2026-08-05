@@ -67,8 +67,8 @@ export async function POST(request: Request) {
             {
               role: 'user',
               parts: [
-                { inlineData: { data: base64Audio, mimeType } },
-                { text: prompt }
+                { text: prompt },
+                { inlineData: { data: base64Audio, mimeType } }
               ]
             }
           ],
