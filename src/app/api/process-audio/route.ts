@@ -35,16 +35,17 @@ export async function POST(request: Request) {
     const prompt = `
       You are an expert AI finance keeper.
       Listen to the following audio recording (which may be in Malayalam or English) and extract the financial transaction details.
-      Respond strictly in JSON format with no markdown formatting or extra text.
-      The JSON object must contain the following fields:
-      - type: string (must be either "EXPENSE" or "REVENUE")
-      - amount: number (the amount mentioned, e.g., 150)
-      - category: string (the category of the transaction, e.g., "Food", "Transport", "Salary", "Shopping")
-      - description: string (a short translation or summary of the expense in English, e.g., "Lunch")
+      If the audio is silent or contains no recognizable transaction, return amount as 0 and description as "No transaction detected".
+      Respond strictly in a flat JSON object format.
+      The JSON object MUST contain exactly these 4 fields:
+      - "type": string (must be either "EXPENSE" or "REVENUE")
+      - "amount": number (the numeric amount mentioned, e.g., 150. If none, 0)
+      - "category": string (e.g., "Food", "Transport", "Salary", "Shopping", or "Unknown")
+      - "description": string (a short English summary of the transaction)
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: [
         {
           role: 'user',
