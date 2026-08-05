@@ -1,17 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
-
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 async function listModels() {
   try {
-    const response = await ai.models.list();
-    for (const model of response) {
-      if (model.name.includes('flash')) {
-        console.log(model.name);
+    let pageToken;
+    do {
+      const response = await ai.models.list({ pageToken });
+      for (const m of response) {
+        console.log(m.name);
       }
-    }
+      pageToken = response.paramsInternal.config.pageToken;
+    } while (pageToken);
   } catch (error) {
-    console.error('Error:', error);
+    console.log('Error:', error);
   }
 }
 listModels();
