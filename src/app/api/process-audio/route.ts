@@ -54,21 +54,40 @@ export async function POST(request: Request) {
       }
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { inlineData: { data: base64Audio, mimeType } },
-            { text: prompt }
-          ]
+    const modelsToTry = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
+    let response = null;
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      try {
+        console.log(`Attempting Gemini model: ${model}`);
+        response = await ai.models.generateContent({
+          model,
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { inlineData: { data: base64Audio, mimeType } },
+                { text: prompt }
+              ]
+            }
+          ],
+          config: {
+            responseMimeType: 'application/json',
+          }
+        });
+        if (response?.text) {
+          break; // Successfully got a response!
         }
-      ],
-      config: {
-        responseMimeType: 'application/json',
+      } catch (err: any) {
+        console.warn(`Model ${model} failed:`, err?.message || err);
+        lastError = err;
       }
-    });
+    }
+
+    if (!response || !response.text) {
+      throw lastError || new Error('All Gemini models failed to respond.');
+    }
 
     const resultText = response.text;
     if (!resultText) {
