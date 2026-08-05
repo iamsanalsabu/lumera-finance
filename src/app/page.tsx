@@ -137,8 +137,9 @@ export default function Dashboard() {
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await processAudio(audioBlob);
+        const mimeType = mediaRecorder.mimeType;
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        await processAudio(audioBlob, mimeType);
       };
 
       mediaRecorder.start();
@@ -157,10 +158,11 @@ export default function Dashboard() {
     }
   };
 
-  const processAudio = async (audioBlob: Blob) => {
+  const processAudio = async (audioBlob: Blob, mimeType: string) => {
     setIsProcessing(true);
     const formData = new FormData();
-    formData.append("audio", audioBlob, "recording.webm");
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    formData.append("audio", audioBlob, `recording.${ext}`);
 
     try {
       const res = await fetch("/api/process-audio", {
