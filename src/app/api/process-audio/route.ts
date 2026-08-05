@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import { verifyJwtToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
@@ -13,11 +12,10 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: 'GROQ_API_KEY is not configured' }, { status: 500 });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
 
@@ -25,90 +23,80 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
     }
 
-    // Convert audio file to base64
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64Audio = buffer.toString('base64');
-    const rawMimeType = audioFile.type || 'audio/webm';
-    const mimeType = rawMimeType.split(';')[0];
+    // Step 1: Speech-to-Text via Groq Whisper
+    console.log('Transcribing audio via Groq Whisper (whisper-large-v3)...');
+    const groqFormData = new FormData();
+    groqFormData.append('file', audioFile);
+    groqFormData.append('model', 'whisper-large-v3');
+    groqFormData.append('temperature', '0');
 
-    const prompt = `
-      You are an expert AI finance keeper specializing in Indian languages, especially Malayalam (both in Malayalam script and Manglish / Malayalam written in English alphabet) and English.
+    const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+      },
+      body: groqFormData
+    });
+
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error('Groq Whisper failed:', errText);
+      return NextResponse.json({ error: 'Failed to transcribe audio', details: errText }, { status: 500 });
+    }
+
+    const groqData = await groqRes.json();
+    const transcript = groqData.text || '';
+    console.log('Groq Whisper Transcript:', transcript);
+
+    if (!transcript.trim()) {
+      return NextResponse.json({ error: 'No transaction detected', details: 'Audio was silent or unclear' }, { status: 400 });
+    }
+
+    // Step 2: Text-to-JSON via Groq Llama 3.3 70B
+    const systemPrompt = `
+      You are an expert AI finance keeper specializing in Indian languages, especially Malayalam (both script and Manglish) and English.
+      Extract the transaction details from the user's spoken sentence.
       
-      Listen carefully to the audio recording. The user may speak in Malayalam, Manglish, or English.
-      
-      Examples of Malayalam / Manglish phrases:
-      - "Chai koodichathinu 20 roopa" / "ചായ കുടിച്ചതിന് 20 രൂപ" -> EXPENSE, 20, Food, Tea
-      - "500 roopa petrol" / "500 രൂപ പെട്രോൾ അടിച്ചു" -> EXPENSE, 500, Transport, Petrol
-      - "10000 roopa sambalam / salary kittiyatha" -> INCOME, 10000, Salary, Salary received
-      - "Kadayil 150 roopa koduthu" / "സാധനം വാങ്ങിയതിന് 150 രൂപ" -> EXPENSE, 150, Shopping, Paid at shop
-
-      Common Malayalam words & numbers to recognize:
-      - Words for currency: "roopa", "rupa", "rupees", "rs", "₹"
-      - Words for expense: "koduthu", "aayi", "chelavayi", "vaangichu", "kudichu", "kazhichu", "petrol adichu"
-      - Words for income: "kitti", "kittiyatha", "vandhu", "kitiya", "salary"
-      - Numbers: onnu (1), randu (2), moonnu (3), naalu (4), anchu (5), aaru (6), ezhu (7), ettu (8), onpathu (9), pathu (10), irupathu (20), muppathu (30), naappathu (40), anpathu (50), arupathu (60), ezhupathu (70), enpathu (80), thonnooru (90), nooru (100), aayiram (1000), laksham (100000).
-
-      Respond strictly in JSON format with no markdown formatting or backticks:
+      Respond strictly in JSON format matching this schema:
       {
         "type": "EXPENSE" or "INCOME",
         "amount": number,
         "category": "Food" | "Transport" | "Shopping" | "Bills" | "Entertainment" | "Salary" | "Other",
-        "description": "Short English description of the transaction",
-        "transcript": "Exact transcription of what was spoken"
+        "description": "Short English summary of the transaction"
       }
-
-      If the audio is silent or no financial transaction was mentioned, return:
-      {
-        "type": "EXPENSE",
-        "amount": 0,
-        "category": "Unknown",
-        "description": "No transaction detected",
-        "transcript": "SILENCE"
-      }
+      If no financial transaction is mentioned, set amount to 0 and category to "Unknown".
     `;
 
-    const modelsToTry = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-flash'];
-    let response = null;
-    let lastError = null;
+    const llamaRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: transcript }
+        ],
+        response_format: { type: 'json_object' }
+      })
+    });
 
-    for (const model of modelsToTry) {
-      try {
-        console.log(`Attempting Gemini model: ${model}`);
-        response = await ai.models.generateContent({
-          model,
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: prompt },
-                { inlineData: { data: base64Audio, mimeType } }
-              ]
-            }
-          ],
-          config: {
-            responseMimeType: 'application/json',
-          }
-        });
-        if (response?.text) {
-          break; // Successfully got a response!
-        }
-      } catch (err: any) {
-        console.warn(`Model ${model} failed:`, err?.message || err);
-        lastError = err;
-      }
+    if (!llamaRes.ok) {
+      const errText = await llamaRes.text();
+      console.error('Groq Llama failed:', errText);
+      return NextResponse.json({ error: 'Failed to parse text', details: errText }, { status: 500 });
     }
 
-    if (!response || !response.text) {
-      throw lastError || new Error('All Gemini models failed to respond.');
-    }
-
-    const resultText = response.text;
+    const llamaData = await llamaRes.json();
+    const resultText = llamaData.choices?.[0]?.message?.content;
+    
     if (!resultText) {
-      throw new Error('Empty response from Gemini');
+      throw new Error('Empty response from Groq Llama');
     }
 
-    console.log("Gemini Response:", resultText); // <-- DEBUG LOG
+    console.log('Groq Llama Result:', resultText);
     const transactionData = JSON.parse(resultText);
 
     // Default to EXPENSE if not recognized
@@ -128,10 +116,9 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ success: true, data: transaction });
+    return NextResponse.json({ success: true, data: transaction, transcript });
   } catch (error: any) {
     console.error('Error processing audio:', error);
-    // Send the exact error message back to the client for debugging!
     return NextResponse.json({ 
       error: 'Failed to process audio', 
       details: error?.message || String(error)
