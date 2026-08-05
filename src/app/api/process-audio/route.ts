@@ -33,18 +33,32 @@ export async function POST(request: Request) {
     const mimeType = rawMimeType.split(';')[0];
 
     const prompt = `
-      You are an expert AI finance keeper.
-      Listen to the following audio recording (which may be in Malayalam or English) and extract the financial transaction details.
-      Respond strictly in JSON format with no markdown formatting or backticks. Use this exact structure:
+      You are an expert AI finance keeper specializing in Indian languages, especially Malayalam (both in Malayalam script and Manglish / Malayalam written in English alphabet) and English.
+      
+      Listen carefully to the audio recording. The user may speak in Malayalam, Manglish, or English.
+      
+      Examples of Malayalam / Manglish phrases:
+      - "Chai koodichathinu 20 roopa" / "ചായ കുടിച്ചതിന് 20 രൂപ" -> EXPENSE, 20, Food, Tea
+      - "500 roopa petrol" / "500 രൂപ പെട്രോൾ അടിച്ചു" -> EXPENSE, 500, Transport, Petrol
+      - "10000 roopa sambalam / salary kittiyatha" -> INCOME, 10000, Salary, Salary received
+      - "Kadayil 150 roopa koduthu" / "സാധനം വാങ്ങിയതിന് 150 രൂപ" -> EXPENSE, 150, Shopping, Paid at shop
+
+      Common Malayalam words & numbers to recognize:
+      - Words for currency: "roopa", "rupa", "rupees", "rs", "₹"
+      - Words for expense: "koduthu", "aayi", "chelavayi", "vaangichu", "kudichu", "kazhichu", "petrol adichu"
+      - Words for income: "kitti", "kittiyatha", "vandhu", "kitiya", "salary"
+      - Numbers: onnu (1), randu (2), moonnu (3), naalu (4), anchu (5), aaru (6), ezhu (7), ettu (8), onpathu (9), pathu (10), irupathu (20), muppathu (30), naappathu (40), anpathu (50), arupathu (60), ezhupathu (70), enpathu (80), thonnooru (90), nooru (100), aayiram (1000), laksham (100000).
+
+      Respond strictly in JSON format with no markdown formatting or backticks:
       {
         "type": "EXPENSE" or "INCOME",
         "amount": number,
-        "category": "string",
-        "description": "string",
-        "transcript": "string"
+        "category": "Food" | "Transport" | "Shopping" | "Bills" | "Entertainment" | "Salary" | "Other",
+        "description": "Short English description of the transaction",
+        "transcript": "Exact transcription of what was spoken"
       }
-      The 'transcript' field should contain exactly what you heard in the audio.
-      If the audio is silent or contains no recognizable transaction, return:
+
+      If the audio is silent or no financial transaction was mentioned, return:
       {
         "type": "EXPENSE",
         "amount": 0,
